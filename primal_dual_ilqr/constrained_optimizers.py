@@ -1,9 +1,7 @@
-from jax import jit, lax, vmap
-
-import jax.numpy as np
-
 from functools import partial
 
+import jax.numpy as np
+from jax import jit, lax, vmap
 from trajax.optimizers import vectorize
 
 from primal_dual_ilqr.optimizers import primal_dual_ilqr
@@ -90,11 +88,18 @@ def constrained_primal_dual_ilqr(
         inequality = inequality_constraint(x, u, t)
 
         # active set
-        active_set = np.invert(np.isclose(dual_inequality[t], 0.0) & (inequality < 0.0))
+        active_set = np.invert(
+            np.isclose(dual_inequality[t], 0.0) & (inequality < 0.0)
+        )
 
         # update cost
-        J += dual_equality[t].T @ equality + 0.5 * penalty * equality.T @ equality
-        J += dual_inequality[t].T @ inequality + 0.5 * penalty * inequality.T @ (
+        J += (
+            dual_equality[t].T @ equality
+            + 0.5 * penalty * equality.T @ equality
+        )
+        J += dual_inequality[
+            t
+        ].T @ inequality + 0.5 * penalty * inequality.T @ (
             active_set * inequality
         )
 
@@ -177,7 +182,9 @@ def constrained_primal_dual_ilqr(
         equality_constraints = equality_constraint_mapped(X, U_pad, t_range)
 
         inequality_constraints = inequality_constraint_mapped(X, U_pad, t_range)
-        inequality_constraints_projected = inequality_projection(inequality_constraints)
+        inequality_constraints_projected = inequality_projection(
+            inequality_constraints
+        )
 
         max_constraint_violation = np.maximum(
             np.max(np.abs(equality_constraints)),
@@ -187,7 +194,9 @@ def constrained_primal_dual_ilqr(
         max_dynamics_violation_sq = np.sum(c * c)
 
         # augmented Lagrangian update
-        dual_equality = dual_update_mapped(equality_constraints, dual_equality, penalty)
+        dual_equality = dual_update_mapped(
+            equality_constraints, dual_equality, penalty
+        )
 
         dual_inequality = dual_update_mapped(
             inequality_constraints, dual_inequality, penalty
@@ -236,7 +245,8 @@ def constrained_primal_dual_ilqr(
             no_errors,
         ) = inputs
         c_not_ok = np.logical_or(
-            max_constraint_violation * max_constraint_violation > c_sq_threshold,
+            max_constraint_violation * max_constraint_violation
+            > c_sq_threshold,
             max_dynamics_violation_sq > c_sq_threshold,
         )
         max_complementary_slack = np.max(

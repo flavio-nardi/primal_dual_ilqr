@@ -1,6 +1,5 @@
-from jax import jit, lax, vmap
-
 import jax.numpy as np
+from jax import jit, lax, vmap
 
 
 @jit

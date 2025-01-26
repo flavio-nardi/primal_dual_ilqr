@@ -7,6 +7,9 @@ dependencies = [
   "jax[cpu]; platform_system != \"Linux\"",
   "jax[cuda12]; platform_system == \"Linux\"",
   "trajax @ git+https://github.com/google/trajax",
+  "mypy",
+  "black",
+  "isort"
 ]
 authors = [
   {name = "Joao Sousa-Pinto", email = "joaospinto@gmail.com"},
@@ -14,8 +17,19 @@ authors = [
 description = "Implements https://arxiv.org/pdf/2403.00748"
 license = "Apache-2.0"
 
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+
 [tool.black]
 line-length = 80
+
+[tool.isort]
+profile = "black"
+line_length = 80
 
 [build-system]
 requires = ["hatchling"]

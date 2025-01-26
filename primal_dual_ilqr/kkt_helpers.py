@@ -1,9 +1,7 @@
-from jax import grad, hessian, jit, lax, vmap
-
-import jax.numpy as np
-
 from functools import partial
 
+import jax.numpy as np
+from jax import grad, hessian, jit, lax, vmap
 from trajax.optimizers import project_psd_cone
 
 

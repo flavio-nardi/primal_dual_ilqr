@@ -1,8 +1,8 @@
 from functools import partial
 
+from jax import jit, lax
 from jax import numpy as np
-from jax import jit, lax, scipy, vmap
-
+from jax import scipy, vmap
 from trajax.optimizers import project_psd_cone as project_psd_cone_lapack
 
 
@@ -88,9 +88,9 @@ def ldlt(Q):
             partial_new_L = carry
             j = elem
 
-            terms = vmap(lambda k: partial_new_L[k] * L_prev[j, k] * D_diag_prev[k])(
-                np.arange(n - 1)
-            )
+            terms = vmap(
+                lambda k: partial_new_L[k] * L_prev[j, k] * D_diag_prev[k]
+            )(np.arange(n - 1))
 
             new_L_elem = (1.0 / D_diag_prev[j]) * (Q[i, j] - np.sum(terms))
 
@@ -103,7 +103,9 @@ def ldlt(Q):
 
         new_L_row = lax.scan(f, np.zeros(n - 1), np.arange(n - 1), n - 1)[1]
 
-        L = np.block([[L_prev, np.zeros([n - 1, 1])], [new_L_row, np.array([1.0])]])
+        L = np.block(
+            [[L_prev, np.zeros([n - 1, 1])], [new_L_row, np.array([1.0])]]
+        )
 
         terms = vmap(lambda j: L[i, j] * L[i, j] * D_diag_prev[j])(np.arange(i))
 

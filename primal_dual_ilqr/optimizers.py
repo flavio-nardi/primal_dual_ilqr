@@ -1,21 +1,16 @@
-from jax import debug, grad, jit, lax, scipy, vmap
-
-import jax.numpy as np
-
 from functools import partial
 
+import jax.numpy as np
+from jax import debug, grad, jit, lax, scipy, vmap
 from trajax.optimizers import evaluate, linearize, quadratize
 
-from .kkt_helpers import compute_search_direction_kkt, tvlqr_kkt
-
 from .dual_tvlqr import dual_lqr, dual_lqr_backward, dual_lqr_gpu
-
+from .kkt_helpers import compute_search_direction_kkt, tvlqr_kkt
 from .linalg_helpers import (
     invert_symmetric_positive_definite_matrix,
     project_psd_cone,
 )
-
-from .primal_tvlqr import tvlqr, tvlqr_gpu, rollout, rollout_gpu
+from .primal_tvlqr import rollout, rollout_gpu, tvlqr, tvlqr_gpu
 
 
 def lagrangian(cost, dynamics, x0):
@@ -52,7 +47,9 @@ def regularize(Q, R, M, make_psd, psd_delta):
     R = lax.cond(make_psd, psd, lambda x: x, R)
 
     # This is done to ensure that the Q - M R^(-1) M^T are positive semi-definite.
-    Rinv = vmap(lambda t: invert_symmetric_positive_definite_matrix(R[t]))(np.arange(T))
+    Rinv = vmap(lambda t: invert_symmetric_positive_definite_matrix(R[t]))(
+        np.arange(T)
+    )
     MRinvMT = vmap(lambda t: M[t] @ Rinv[t] @ M[t].T)(np.arange(T))
     QMRinvMT = vmap(lambda t: Q[t] - MRinvMT[t])(np.arange(T))
     QMRinvMT = lax.cond(make_psd, psd, lambda x: x, QMRinvMT)
@@ -167,7 +164,9 @@ def slope(dX, dU, dV, c, q, r, rho):
     Returns:
         dir_derivative: the directional derivative.
     """
-    return np.sum(q * dX) + np.sum(r * dU) + np.sum(dV * c) - rho * np.sum(c * c)
+    return (
+        np.sum(q * dX) + np.sum(r * dU) + np.sum(dV * c) - rho * np.sum(c * c)
+    )
 
 
 @partial(jit, static_argnums=(0, 1))
@@ -386,7 +385,9 @@ def primal_dual_ilqr(
 
     def body(inputs):
         """Solves LQR subproblem and returns updated trajectory."""
-        X, U, V, dX, dU, dV, iteration, _, g, c, rho, merit, merit_slope = inputs
+        X, U, V, dX, dU, dV, iteration, _, g, c, rho, merit, merit_slope = (
+            inputs
+        )
 
         X_new, U_new, V_new, g_new, c_new, no_errors = line_search(
             partial(merit_function, rho=rho),
@@ -440,7 +441,9 @@ def primal_dual_ilqr(
         delta_norm_sq = np.sum(dX * dX) + np.sum(dU * dU) + np.sum(dV * dV)
         delta_norm_ok = delta_norm_sq > var_threshold**2
         c_ok = c_sq_norm > c_sq_threshold
-        progress_ok = np.logical_or(np.logical_and(slope_ok, delta_norm_ok), c_ok)
+        progress_ok = np.logical_or(
+            np.logical_and(slope_ok, delta_norm_ok), c_ok
+        )
 
         status_ok = np.logical_and(no_errors, iteration < max_iterations)
 
@@ -448,26 +451,30 @@ def primal_dual_ilqr(
 
     g, c = model_evaluator(X_in, U_in)
 
-    dX, dU, dV, rho, merit, merit_slope = direction_and_merit(X_in, U_in, V_in, g, c)
+    dX, dU, dV, rho, merit, merit_slope = direction_and_merit(
+        X_in, U_in, V_in, g, c
+    )
 
-    X, U, V, _, _, _, iteration, no_errors, g, c, _, _, merit_slope = lax.while_loop(
-        continuation_criterion,
-        body,
-        (
-            X_in,
-            U_in,
-            V_in,
-            dX,
-            dU,
-            dV,
-            0,
-            True,
-            g,
-            c,
-            rho,
-            merit,
-            merit_slope,
-        ),
+    X, U, V, _, _, _, iteration, no_errors, g, c, _, _, merit_slope = (
+        lax.while_loop(
+            continuation_criterion,
+            body,
+            (
+                X_in,
+                U_in,
+                V_in,
+                dX,
+                dU,
+                dV,
+                0,
+                True,
+                g,
+                c,
+                rho,
+                merit,
+                merit_slope,
+            ),
+        )
     )
 
     no_errors = np.logical_and(no_errors, iteration < max_iterations)

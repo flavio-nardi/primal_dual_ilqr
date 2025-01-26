@@ -19,7 +19,6 @@
 import jax
 import jax.numpy as jnp
 import jax.scipy as jsp
-
 from trajax import optimizers
 
 from primal_dual_ilqr.optimizers import primal_dual_ilqr
@@ -100,6 +99,7 @@ def cost(x, u, t):
 def dynamics(x, u, t):
     # return x + dt * cartpole(x, squish(u), t)
     return x + dt * cartpole(x, u, t)
+
 
 # Use float64 instead of float32.
 jax.config.update("jax_enable_x64", True)

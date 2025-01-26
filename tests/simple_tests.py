@@ -14,17 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from primal_dual_ilqr.optimizers import primal_dual_ilqr
-
-from absl.testing import absltest
-from absl.testing import parameterized
 from functools import partial
+
+import jax
+from absl.testing import absltest, parameterized
+from jax import config, disable_jit, grad, jit, jvp
 from jax import numpy as np
-from jax import config, disable_jit, jit, grad, jvp
 from trajax.integrators import euler
 from trajax.optimizers import objective, scipy_minimize
 
-import jax
+from primal_dual_ilqr.optimizers import primal_dual_ilqr
 
 
 @jit

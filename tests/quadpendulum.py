@@ -14,18 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import jax.numpy as jnp
+from functools import partial
+
 import jax
-
+import jax.numpy as jnp
 import numpy as np
-
+from jax import grad, jvp
 from trajax import integrators
 from trajax.experimental.sqp import util
 
 from primal_dual_ilqr.optimizers import primal_dual_ilqr
-from functools import partial
-
-from jax import grad, jvp
 
 n = 8
 m = 2
@@ -82,7 +80,9 @@ def get_mass_inv(q):
 
 
 kinetic = lambda q, q_dot: 0.5 * jnp.vdot(q_dot, get_mass_matrix(q) @ q_dot)
-potential = lambda q: Mass * grav * q[1] + mass * grav * (q[1] - L * jnp.cos(q[-1]))
+potential = lambda q: Mass * grav * q[1] + mass * grav * (
+    q[1] - L * jnp.cos(q[-1])
+)
 lag = lambda q, q_dot: kinetic(q, q_dot) - potential(q)
 dL_dq = grad(lag, 0)
 
@@ -157,7 +157,9 @@ def obs_constraint(q):
     theta = q[2]
     phi = q[-1]
 
-    R = jnp.array([[jnp.cos(theta), -jnp.sin(theta)], [jnp.sin(theta), jnp.cos(theta)]])
+    R = jnp.array(
+        [[jnp.cos(theta), -jnp.sin(theta)], [jnp.sin(theta), jnp.cos(theta)]]
+    )
     pos_c = pos + R @ jnp.array([0.0, 0.15 * l])
     pole = (pos, pos + jnp.array([L * jnp.sin(phi), -L * jnp.cos(phi)]))
 
@@ -211,7 +213,9 @@ def state_constraint(x, t, theta_lim=jnp.pi / 2.0):
     avoid_cons = obs_constraint(x[:4])
 
     # world_cons
-    world_cons = jnp.concatenate((x[:2] - world_range[0], world_range[1] - x[:2]))
+    world_cons = jnp.concatenate(
+        (x[:2] - world_range[0], world_range[1] - x[:2])
+    )
 
     return jnp.concatenate((theta_cons, world_cons, avoid_cons))
 

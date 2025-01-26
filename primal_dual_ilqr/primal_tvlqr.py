@@ -1,5 +1,4 @@
 import jax.numpy as np
-
 from jax import jit, lax, scipy, vmap
 
 from .linalg_helpers import solve_symmetric_positive_definite_system
@@ -77,7 +76,9 @@ def tvlqr(Q, q, R, r, M, A, B, c):
         P, p = carry
         t = elem
 
-        K, k, P, p = lqr_step(P, p, Q[t], q[t], R[t], r[t], M[t], A[t], B[t], c[t])
+        K, k, P, p = lqr_step(
+            P, p, Q[t], q[t], R[t], r[t], M[t], A[t], B[t], c[t]
+        )
 
         new_carry = (P, p)
         new_output = (K, k, P, p)
@@ -191,7 +192,9 @@ def tvlqr_gpu(Q, q, R, r, M, A, B, c):
             q.reshape([T + 1, 1, n])
             - np.concatenate(
                 [
-                    vmap(lambda t: MRinv[t] @ r[t])(np.arange(T)).reshape([T, 1, n]),
+                    vmap(lambda t: MRinv[t] @ r[t])(np.arange(T)).reshape(
+                        [T, 1, n]
+                    ),
                     np.zeros([1, 1, n]),
                 ]
             ),
@@ -207,7 +210,9 @@ def tvlqr_gpu(Q, q, R, r, M, A, B, c):
         axis=1,
     )
 
-    result = lax.associative_scan(lambda r, l: vmap(fn)(r, l), elems, reverse=True)
+    result = lax.associative_scan(
+        lambda r, l: vmap(fn)(r, l), elems, reverse=True
+    )
 
     P = result[:, -n:, :]
     p = result[:, 2 * n + 1, :]
