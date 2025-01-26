@@ -9,7 +9,8 @@ dependencies = [
   "trajax @ git+https://github.com/google/trajax",
   "mypy",
   "black",
-  "isort"
+  "isort",
+  "matplotlib"
 ]
 authors = [
   {name = "Joao Sousa-Pinto", email = "joaospinto@gmail.com"},
