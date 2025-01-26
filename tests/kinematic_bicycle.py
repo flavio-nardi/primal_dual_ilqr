@@ -40,7 +40,7 @@ def kinematic_model_expm_discretization(state, control, timestep):
     return next_state
 
 
-horizon = 50
+horizon = 100
 dt = 0.1
 
 
@@ -48,7 +48,7 @@ def dynamics(x, u, t):
     return kinematic_model_expm_discretization(x, u, t)
 
 
-target_state = jnp.array([10, 0.0, 0.0, 0.0, 0.0, 0.0])
+target_state = jnp.array([50, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
 def cost(x, u, t):
@@ -72,18 +72,18 @@ from timeit import default_timer as timer
 
 
 @jax.jit
-def work():
+def work_ilqr():
     return optimizers.ilqr(cost, dynamics, x0, u0, maxiter=1000)
 
 
-X, U, obj, grad, adj, lqr, iter = work()
+X, U, obj, grad, adj, lqr, iter = work_ilqr()
 X.block_until_ready()
 
 start = timer()
 
 n = 100
 for i in range(n):
-    X, _, _, _, _, _, _ = work()
+    X, _, _, _, _, _, _ = work_ilqr()
     X.block_until_ready()
 
 end = timer()
@@ -94,7 +94,7 @@ print(f"Trajax iLQR result: {obj=} {iter=}, time: {t:.4f} seconds")
 
 
 @jax.jit
-def work():
+def work_primal_dual():
     return primal_dual_ilqr(
         cost,
         dynamics,
@@ -106,7 +106,7 @@ def work():
     )
 
 
-X, U, V, iter, obj, c, no_errors = work()
+X, U, V, iter, obj, c, no_errors = work_primal_dual()
 X.block_until_ready()
 
 
@@ -114,7 +114,7 @@ start = timer()
 
 n = 100
 for i in range(n):
-    X, _, _, _, _, _, _ = work()
+    X, _, _, _, _, _, _ = work_primal_dual()
     X.block_until_ready()
 
 end = timer()
