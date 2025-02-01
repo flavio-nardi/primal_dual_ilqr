@@ -1,12 +1,12 @@
+from enum import Enum, auto
+
 import jax
 import jax.numpy as jnp
 from jax.scipy.linalg import expm
+from plot_utils import plot_kinematic_bicycle_results
 from trajax import optimizers
 
 from primal_dual_ilqr.optimizers import primal_dual_ilqr
-from plot_utils import plot_kinematic_bicycle_results
-
-from enum import Enum, auto
 
 
 class DiscretizationMethod(Enum):
@@ -18,78 +18,53 @@ discretization_method: DiscretizationMethod = DiscretizationMethod.EULER
 
 
 @jax.jit
-def kinematic_model_expm_discretization(state, control, timestep):
-    A = jnp.array(
-        [
-            [0, 0, -state[3] * jnp.sin(state[2]), jnp.cos(state[2]), 0, 0],
-            [0, 0, state[3] * jnp.cos(state[2]), jnp.sin(state[2]), 0, 0],
-            [0, 0, 0, state[4], state[3], 0],
-            [0, 0, 0, 0, 0, 1],
-            [0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0],
-        ]
-    )
+def kinematic_single_track(state, control, timestep):
 
-    B = jnp.array([[0, 0], [0, 0], [0, 0], [0, 0], [1, 0], [0, 1]])
+    del timestep
+    _, _, psi, vx, kappa, ax = state
+    swirl, jerk = control
 
-    if discretization_method == DiscretizationMethod.EULER:
-        next_state = A * timestep @ state + B * timestep @ control
-    elif discretization_method == DiscretizationMethod.EXPM:
-        BigA = jnp.block(
-            [
-                [A, B],
-                [
-                    jnp.zeros((control.shape[0], state.shape[0])),
-                    jnp.zeros((control.shape[0], control.shape[0])),
-                ],
-            ]
-        )
+    # equations of motion
+    x_dot = vx * jnp.cos(psi)
+    y_dot = vx * jnp.sin(psi)
+    psi_dot = kappa * vx
+    vx_dot = ax
+    kappa_dot = swirl
+    ax_dot = jerk
 
-        BigAd = expm(BigA * timestep)
-
-        Ad = BigAd[: state.shape[0], : state.shape[0]]
-        Bd = BigAd[: state.shape[0], state.shape[0] :]
-
-        next_state = Ad @ state + Bd @ control
-    else:
-        raise ValueError(
-            f"Unknown discretization method: {discretization_method}"
-        )
-
-    return next_state
+    return jnp.array([x_dot, y_dot, psi_dot, vx_dot, kappa_dot, ax_dot])
 
 
-horizon = 200
+horizon = 300
 dt = 0.1
 
 
 def dynamics(x, u, t):
-    return kinematic_model_expm_discretization(x, u, t)
+    return x + dt * kinematic_single_track(x, u, t)
 
 
-target_state = jnp.array([0.0, 3.0, 0.0, 10.0, 0.0, 0.0])
+target_state = jnp.array([100.0, 30.0, 0.0, 0.0, 0.0, 0.0])
 
 
 def cost(x, u, t):
-    y_error = x[1:] - target_state[1:]
-    yaw_error = x[2:] - target_state[2:]
-    speed_error = x[3:] - target_state[3:]
-    w_y = 0.1
-    w_yaw = 0.0
-    w_speed = 0.05
+    err_xy = x[:2] - target_state[:2]
+    err_yaw = x[2] - target_state[2]
+    err_vx = x[3] - target_state[3]
+    w_xy = 1000.0
+    w_yaw = 1000.0
+    w_vx = 1000.0
 
-    cv = jnp.maximum(jnp.abs(u[1]) - 2.0, 0.0)
-    stage_cost = (
-        w_y * jnp.dot(y_error, y_error)
-        + w_speed * jnp.dot(speed_error, speed_error)
-        + w_yaw * jnp.dot(yaw_error, yaw_error)
-        + 10.0 * jnp.dot(u, u)
-        + 10000.0 * jnp.dot(cv, cv)
+    cv = (
+        jnp.maximum(jnp.abs(u[1]) - 2.0, 0.0)
+        + jnp.maximum(x[5] - 4.0, 0.0)
+        + jnp.maximum(-10.0 - x[5], 0.0)
+        + jnp.maximum(-x[3], 0.0)
     )
+    stage_cost = +100.0 * jnp.dot(u, u) + 1000.0 * jnp.dot(cv, cv)
     final_cost = (
-        w_y * jnp.dot(y_error, y_error)
-        + w_speed * jnp.dot(speed_error, speed_error)
-        + w_yaw * jnp.dot(yaw_error, yaw_error)
+        w_xy * jnp.dot(err_xy, err_xy)
+        + w_vx * jnp.dot(err_vx, err_vx)
+        + w_yaw * jnp.dot(err_yaw, err_yaw)
     )
     return jnp.where(t == horizon, final_cost, stage_cost)
 
@@ -101,10 +76,12 @@ V0 = jnp.zeros([horizon + 1, 6])
 
 from timeit import default_timer as timer
 
+MAX_ITER: int = 500
+
 
 @jax.jit
 def work_ilqr():
-    return optimizers.ilqr(cost, dynamics, x0, u0, maxiter=1000)
+    return optimizers.ilqr(cost, dynamics, x0, u0, maxiter=MAX_ITER)
 
 
 X, U, obj, grad, adj, lqr, iter = work_ilqr()
@@ -122,7 +99,7 @@ end = timer()
 t = (end - start) / n
 
 print(f"Trajax iLQR result: {obj=} {iter=}, time: {t:.4f} seconds")
-plot_kinematic_bicycle_results(X, U, dt)
+plot_kinematic_bicycle_results(X, U, dt, "ilqr_results")
 
 
 @jax.jit
@@ -134,7 +111,7 @@ def work_primal_dual():
         X_warm_start,
         u0,
         V0,
-        max_iterations=1000,
+        max_iterations=MAX_ITER,
     )
 
 
@@ -153,3 +130,4 @@ end = timer()
 
 t = (end - start) / n
 print(f"Primal dual result: {obj=} {iter=}, time: {t:.4f} seconds")
+plot_kinematic_bicycle_results(X, U, dt, "primal_dual_results")

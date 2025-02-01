@@ -1,7 +1,9 @@
 import unittest
+
 import jax.numpy as jnp
-from jax import grad, jit
 import numpy as np
+from jax import grad, jit
+
 from tests.single_track_bicycle_model import SingleTrackModel, VehicleParams
 
 
