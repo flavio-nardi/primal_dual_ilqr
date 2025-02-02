@@ -24,26 +24,19 @@ jax.config.update("jax_enable_x64", True)
 class MPCConfig:
     """Configuration parameters for MPC."""
 
-    horizon: int = 50
+    horizon: int = 40
     dt: float = 0.1
-    max_iterations: int = 500
-    simulation_steps: int = 1700
+    max_iterations: int = 1000
+    simulation_steps: int = 1000
 
     # Cost weights
     w_xy: float = 0.5  # Position error weight
-    w_yaw: float = 0.9  # Yaw error weight
-    w_vx: float = 1.0  # Velocity error weight
-    w_kappa: float = 0.1  # Curvature error weight
-    w_control: float = 10.0  # Control input weight
-    w_constraint: float = 1000.0  # Constraint violation weight
-
-    # Cost weights
-    w_xy: float = 0.5  # Position error weight
-    w_yaw: float = 0.9  # Yaw error weight
-    w_vx: float = 1.0  # Velocity error weight
-    w_kappa: float = 0.1  # Curvature error weight
-    w_control: float = 10.0  # Control input weight
-    w_constraint: float = 1000.0  # Constraint violation weight
+    w_yaw: float = 1.0  # Yaw error weight
+    w_vx: float = 0.05  # Velocity error weight
+    w_kappa: float = 0.0  # Curvature error weight
+    w_jerk: float = 1.0
+    w_swirl: float = 10.0
+    w_constraint: float = 200.0  # Constraint violation weight
 
 
 class VehicleState(NamedTuple):
@@ -95,6 +88,25 @@ def kinematic_bicycle_dynamics(
 
 
 @jax.jit
+def calculate_track_projection(
+    position: jnp.ndarray, track_reference
+) -> Tuple[float, int]:
+    """
+    Calculate the projection of a position onto the track reference line.
+
+    Args:
+        position: Vehicle position as [x, y] array
+        track_reference: Track reference object containing waypoints
+
+    Returns:
+        Tuple of (signed_distance, closest_point_index)
+    """
+    return point_to_polyline_signed_distance(
+        position, track_reference.get_reference_line()
+    )
+
+
+@jax.jit
 def get_target_state(state: jnp.ndarray, track_reference) -> jnp.ndarray:
     """
     Get target state based on spatial projection to reference line.
@@ -107,11 +119,7 @@ def get_target_state(state: jnp.ndarray, track_reference) -> jnp.ndarray:
         Target state vector [cross_track_error, psi, vx, kappa]
     """
     position = state[:2]
-
-    # Calculate signed distance and closest point index
-    e_y, min_idx = point_to_polyline_signed_distance(
-        position, track_reference.get_reference_line()
-    )
+    e_y, min_idx = calculate_track_projection(position, track_reference)
 
     return jnp.array(
         [
@@ -146,13 +154,16 @@ def create_stage_cost_fn(config: MPCConfig, track_reference):
         err_yaw = x[2] - target[1]
         err_vx = x[3] - target[2]
         err_kappa = x[4] - target[3]
+        vx_2 = jnp.dot(x[3], x[3])
+        ay_ra = jnp.dot(x[4], vx_2)
 
         # Compute constraint violations
         cv = (
-            jnp.maximum(jnp.abs(u[1]) - 2.0, 0.0)  # Jerk limits
+            jnp.maximum(jnp.abs(u[1]) - 5.0, 0.0)  # Jerk limits
             + jnp.maximum(x[5] - 4.0, 0.0)  # Max acceleration
             + jnp.maximum(-10.0 - x[5], 0.0)  # Min acceleration
             + jnp.maximum(-x[3], 0.0)  # Non-negative velocity
+            # + jnp.maximum(jnp.abs(ay_ra) - 20.0, 0.0)  # max lat accel rear axle
         )
 
         # Weighted sum of tracking errors
@@ -164,9 +175,11 @@ def create_stage_cost_fn(config: MPCConfig, track_reference):
         )
 
         # Add control and constraint costs (zero for terminal stage)
-        control_cost = config.w_control * jnp.dot(
-            u, u
-        ) + config.w_constraint * jnp.dot(cv, cv)
+        control_cost = (
+            config.w_swirl * jnp.dot(u[0], u[0])
+            + config.w_jerk * jnp.dot(u[1], u[1])
+            + config.w_constraint * jnp.dot(cv, cv)
+        )
 
         return jnp.where(
             t == config.horizon,
@@ -192,6 +205,7 @@ def run_mpc(
     simulation_steps: int,
     mpc_horizon: int,
     dt: float,
+    track_reference,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Run Model Predictive Control simulation.
@@ -212,6 +226,16 @@ def run_mpc(
         """Single step of MPC using iLQR."""
         current_state, u0 = carry
 
+        # Calculate track projection for current state
+        position = current_state[:2]
+        cross_track_error, closest_point_idx = calculate_track_projection(
+            position, track_reference
+        )
+        heading_error = (
+            current_state[2] - track_reference.psi[closest_point_idx]
+        )
+        speed_error = current_state[3] - track_reference.vx[closest_point_idx]
+
         # Run iLQR optimization
         X, U, _, _, _, _, _ = optimizers.ilqr(
             cost_fn,
@@ -228,17 +252,29 @@ def run_mpc(
         # Prepare warm start for next iteration
         next_u0 = jnp.vstack([U[1:], U[-1]])
 
-        return (next_state, next_u0), (current_state, control)
+        return (next_state, next_u0), (
+            current_state,
+            control,
+            cross_track_error,
+            heading_error,
+            speed_error,
+        )
 
     # Run the MPC loop using scan
-    (final_state, _), (states, controls) = jax.lax.scan(
+    (final_state, _), (
+        states,
+        controls,
+        cross_track_error,
+        heading_error,
+        speed_error,
+    ) = jax.lax.scan(
         mpc_step, (initial_state, u0), jnp.arange(simulation_steps)
     )
 
     # Add final state to trajectory
     states = jnp.vstack([states, final_state[None, :]])
 
-    return states, controls
+    return states, controls, cross_track_error, heading_error, speed_error
 
 
 def main():
@@ -248,7 +284,7 @@ def main():
 
     # Load track reference
     track_reference = create_track_reference(
-        track_name="Nuerburgring", target_speed=30, ds=1.0
+        track_name="Nuerburgring", target_speed=35, ds=1.0
     )
 
     # Create cost and dynamics functions
@@ -272,17 +308,24 @@ def main():
     # Run MPC simulation
     print("Starting MPC simulation...")
     start = timer()
-    states, controls = run_mpc(
-        x0, config.simulation_steps, config.horizon, config.dt
+    states, controls, cross_track_error, heading_error, speed_error = run_mpc(
+        x0, config.simulation_steps, config.horizon, config.dt, track_reference
     )
-    states.block_until_ready()  # Ensure computation is complete
+    states.block_until_ready()
     end = timer()
     print(f"MPC simulation completed in {end - start:.4f} seconds")
 
     # Plot results
     print("Plotting results...")
     plot_kinematic_bicycle_results(
-        states, controls, config.dt, "mpc_results", track_reference
+        states,
+        controls,
+        config.dt,
+        "mpc_results",
+        track_reference,
+        cross_track_error,
+        heading_error,
+        speed_error,
     )
 
 
