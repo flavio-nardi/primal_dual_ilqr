@@ -60,7 +60,7 @@ def cost(x, u, t):
         + jnp.maximum(-10.0 - x[5], 0.0)
         + jnp.maximum(-x[3], 0.0)
     )
-    stage_cost = +100.0 * jnp.dot(u, u) + 1000.0 * jnp.dot(cv, cv)
+    stage_cost = 100.0 * jnp.dot(u, u) + 1000.0 * jnp.dot(cv, cv)
     final_cost = (
         w_xy * jnp.dot(err_xy, err_xy)
         + w_vx * jnp.dot(err_vx, err_vx)

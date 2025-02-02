@@ -10,7 +10,10 @@ dependencies = [
   "mypy",
   "black",
   "isort",
-  "matplotlib"
+  "matplotlib",
+  "gymnasium>=1.0.0",
+  "casadi>=3.6.4",
+  "numpy"
 ]
 authors = [
   {name = "Joao Sousa-Pinto", email = "joaospinto@gmail.com"},
