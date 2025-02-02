@@ -1,11 +1,13 @@
 import os
+from typing import Any, Optional
 
-import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
 
-def plot_kinematic_bicycle_results(X, U, dt, plot_name: str):
+def plot_kinematic_bicycle_results(
+    X, U, dt, plot_name: str, target_states: Optional[jnp.ndarray] = None
+):
     """Plot optimization results."""
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -18,6 +20,8 @@ def plot_kinematic_bicycle_results(X, U, dt, plot_name: str):
         "x-",
         label="Position (m)",
     )
+    if target_states is not None:
+        axs[0, 0].plot(target_states.x, target_states.y, "r--", label="Target")
     axs[0, 0].set_xlabel("x (m)")
     axs[0, 0].set_ylabel("y (m)")
     axs[0, 0].legend()
@@ -31,6 +35,7 @@ def plot_kinematic_bicycle_results(X, U, dt, plot_name: str):
     )
     axs[0, 1].set_xlabel("Time (s)")
     axs[0, 1].set_ylabel("Speed")
+    axs[0, 1].set_ylim([0, 30])
     axs[0, 1].legend()
     axs[0, 1].grid()
 
