@@ -13,6 +13,7 @@ import jax.numpy as jnp
 from jax.scipy.linalg import expm
 from plot_utils import plot_kinematic_bicycle_results
 from trajax import optimizers
+from primal_dual_ilqr.optimizers import primal_dual_ilqr
 
 from environment.vehicle_env import create_track_reference
 from math_lib.signed_distance import point_to_polyline_signed_distance
@@ -24,19 +25,19 @@ jax.config.update("jax_enable_x64", True)
 class MPCConfig:
     """Configuration parameters for MPC."""
 
-    horizon: int = 40
+    horizon: int = 60
     dt: float = 0.1
-    max_iterations: int = 1000
-    simulation_steps: int = 1000
+    max_iterations: int = 10
+    simulation_steps: int = 350
 
     # Cost weights
     w_xy: float = 0.5  # Position error weight
-    w_yaw: float = 1.0  # Yaw error weight
-    w_vx: float = 0.05  # Velocity error weight
+    w_yaw: float = 0.2  # Yaw error weight
+    w_vx: float = 0.01  # Velocity error weight
     w_kappa: float = 0.0  # Curvature error weight
     w_jerk: float = 1.0
     w_swirl: float = 10.0
-    w_constraint: float = 200.0  # Constraint violation weight
+    w_constraint: float = 100.0  # Constraint violation weight
 
 
 class VehicleState(NamedTuple):
@@ -163,7 +164,8 @@ def create_stage_cost_fn(config: MPCConfig, track_reference):
             + jnp.maximum(x[5] - 4.0, 0.0)  # Max acceleration
             + jnp.maximum(-10.0 - x[5], 0.0)  # Min acceleration
             + jnp.maximum(-x[3], 0.0)  # Non-negative velocity
-            # + jnp.maximum(jnp.abs(ay_ra) - 20.0, 0.0)  # max lat accel rear axle
+            + jnp.maximum(x[3] - target[2], 0.0)  # below max speed
+            + jnp.maximum(jnp.abs(ay_ra) - 15.0, 0.0)  # max lat accel rear axle
         )
 
         # Weighted sum of tracking errors
@@ -221,10 +223,12 @@ def run_mpc(
     """
     # Initial control sequence for warm starting
     u0 = jnp.zeros([mpc_horizon, 2])
+    X_warm_start = optimizers.rollout(dynamics_fn, u0, initial_state)
+    V0 = jnp.zeros([mpc_horizon + 1, 6])
 
     def mpc_step(carry, t):
         """Single step of MPC using iLQR."""
-        current_state, u0 = carry
+        current_state, u0, X_warm_start = carry
 
         # Calculate track projection for current state
         position = current_state[:2]
@@ -237,12 +241,14 @@ def run_mpc(
         speed_error = current_state[3] - track_reference.vx[closest_point_idx]
 
         # Run iLQR optimization
-        X, U, _, _, _, _, _ = optimizers.ilqr(
+        X, U, _, _, _, _, _ = primal_dual_ilqr(
             cost_fn,
             dynamics_fn,
             current_state,
+            X_warm_start,
             u0,
-            maxiter=MPCConfig.max_iterations,
+            V0,
+            max_iterations=MPCConfig.max_iterations,
         )
 
         # Extract first control action and simulate forward
@@ -252,7 +258,9 @@ def run_mpc(
         # Prepare warm start for next iteration
         next_u0 = jnp.vstack([U[1:], U[-1]])
 
-        return (next_state, next_u0), (
+        next_X_warm_start = optimizers.rollout(dynamics_fn, next_u0, next_state)
+
+        return (next_state, next_u0, next_X_warm_start), (
             current_state,
             control,
             cross_track_error,
@@ -261,14 +269,16 @@ def run_mpc(
         )
 
     # Run the MPC loop using scan
-    (final_state, _), (
+    (final_state, _, _), (
         states,
         controls,
         cross_track_error,
         heading_error,
         speed_error,
     ) = jax.lax.scan(
-        mpc_step, (initial_state, u0), jnp.arange(simulation_steps)
+        mpc_step,
+        (initial_state, u0, X_warm_start),
+        jnp.arange(simulation_steps),
     )
 
     # Add final state to trajectory
@@ -284,7 +294,7 @@ def main():
 
     # Load track reference
     track_reference = create_track_reference(
-        track_name="Nuerburgring", target_speed=35, ds=1.0
+        track_name="Nuerburgring", target_speed=30, ds=1.0
     )
 
     # Create cost and dynamics functions
@@ -321,7 +331,7 @@ def main():
         states,
         controls,
         config.dt,
-        "ilqr_mpc_results",
+        "primal_dual_mpc_results",
         track_reference,
         cross_track_error,
         heading_error,
