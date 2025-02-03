@@ -25,10 +25,10 @@ jax.config.update("jax_enable_x64", True)
 class MPCConfig:
     """Configuration parameters for MPC."""
 
-    horizon: int = 60
+    horizon: int = 30
     dt: float = 0.1
     max_iterations: int = 10
-    simulation_steps: int = 350
+    simulation_steps: int = 2000
 
     # Cost weights
     w_xy: float = 0.5  # Position error weight
@@ -161,11 +161,11 @@ def create_stage_cost_fn(config: MPCConfig, track_reference):
         # Compute constraint violations
         cv = (
             jnp.maximum(jnp.abs(u[1]) - 5.0, 0.0)  # Jerk limits
-            + jnp.maximum(x[5] - 4.0, 0.0)  # Max acceleration
+            + jnp.maximum(x[5] - 3.0, 0.0)  # Max acceleration
             + jnp.maximum(-10.0 - x[5], 0.0)  # Min acceleration
             + jnp.maximum(-x[3], 0.0)  # Non-negative velocity
             + jnp.maximum(x[3] - target[2], 0.0)  # below max speed
-            + jnp.maximum(jnp.abs(ay_ra) - 15.0, 0.0)  # max lat accel rear axle
+            + jnp.maximum(jnp.abs(ay_ra) - 13.0, 0.0)  # max lat accel rear axle
         )
 
         # Weighted sum of tracking errors
