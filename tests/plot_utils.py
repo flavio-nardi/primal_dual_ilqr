@@ -126,3 +126,69 @@ def plot_kinematic_bicycle_results(
         dpi=300,
         bbox_inches="tight",
     )
+
+
+def plot_track_results(
+    X,
+    U,
+    ds,
+    plot_name: str,
+    reference: Optional[jnp.ndarray] = None,
+):
+    """Plot optimization results."""
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+
+    dist = jnp.arange(X.shape[0]) * ds
+    fig, axs = plt.subplots(2, 2, figsize=(24, 18))
+
+    axs[0, 0].plot(
+        X[:, 0],
+        X[:, 1],
+        "x-",
+        label="Position (m)",
+    )
+    axs[0, 0].set_xlabel("x (m)")
+    axs[0, 0].set_ylabel("y (m)")
+    axs[0, 0].legend()
+    axs[0, 0].grid()
+
+    axs[0, 1].plot(
+        dist,
+        X[:, 2],
+        "x-",
+        label="Yaw (rad)",
+    )
+    axs[0, 1].set_xlabel("Distance along (s)")
+    axs[0, 1].set_ylabel("Yaw")
+    axs[0, 1].legend()
+    axs[0, 1].grid()
+
+    axs[1, 0].plot(
+        dist,
+        X[:, 3],
+        "x-",
+        label="Curvature (1pm)",
+    )
+    axs[1, 0].set_xlabel("Distance along (s)")
+    axs[1, 0].set_ylabel("Curvature")
+    axs[1, 0].legend()
+    axs[1, 0].grid()
+
+    axs[1, 1].plot(
+        dist[:-1],
+        U[:, 0],
+        "x-",
+        label="dkappa ds (1pm2)",
+    )
+    axs[1, 1].set_xlabel("Dstance along (s)")
+    axs[1, 1].set_ylabel("dkappa_ds")
+    axs[1, 1].legend()
+    axs[1, 1].grid()
+
+    plt.tight_layout()
+
+    plt.savefig(
+        curr_dir + "/" + plot_name + ".png",
+        dpi=300,
+        bbox_inches="tight",
+    )
