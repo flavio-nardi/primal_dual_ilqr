@@ -13,10 +13,10 @@ import jax.numpy as jnp
 from jax.scipy.linalg import expm
 from plot_utils import plot_kinematic_bicycle_results
 from trajax import optimizers
-from primal_dual_ilqr.optimizers import primal_dual_ilqr
 
 from environment.vehicle_env import create_track_reference
 from math_lib.signed_distance import point_to_polyline_signed_distance
+from primal_dual_ilqr.optimizers import primal_dual_ilqr
 
 # Enable 64-bit precision for better numerical stability
 jax.config.update("jax_enable_x64", True)
