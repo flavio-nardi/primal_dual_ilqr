@@ -1,4 +1,6 @@
+import json
 import os
+from dataclasses import dataclass
 from enum import Enum, auto
 from timeit import default_timer as timer
 
@@ -9,11 +11,22 @@ from plot_utils import plot_track_results
 from trajax import optimizers
 
 from data.read_track_data import (
+    calculate_distance_along,
     read_raceline_data,
     read_track_data,
     resample,
 )
 from primal_dual_ilqr.constrained_optimizers import constrained_primal_dual_ilqr
+
+
+@dataclass(frozen=True)
+class Path:
+    s: jnp.ndarray
+    x: jnp.ndarray
+    y: jnp.ndarray
+    psi: jnp.ndarray
+    kappa: jnp.ndarray
+    dkappa_ds: jnp.ndarray
 
 
 @jax.jit
@@ -35,6 +48,32 @@ def spatial_kinematics(state, control, s):
     dkappa_ds = jnp.reshape(dkappa_ds, (1,))
 
     return jnp.concatenate([dx_ds, dy_ds, dpsi_ds, dkappa_ds])
+
+
+def dump_path_to_json(path: Path, track_name: str, curr_dir: str):
+    """
+    Save reconstructed track path to JSON file.
+
+    Args:
+        path: Path object containing centerline data
+        track_name: Name of track for filename
+        curr_dir: Directory to save JSON file
+    """
+    # Convert numpy arrays to lists for JSON serialization
+    path_dict = {
+        "s": path.s.tolist(),
+        "x": path.x.tolist(),
+        "y": path.y.tolist(),
+        "psi": path.psi.tolist(),
+        "kappa": path.kappa.tolist(),
+        "dkappa_ds": path.dkappa_ds.tolist(),
+    }
+
+    file_path = os.path.join(curr_dir, track_name + ".json")
+
+    # Write to JSON file
+    with open(file_path, "w") as f:
+        json.dump(path_dict, f, indent=2)
 
 
 def main():
@@ -117,6 +156,26 @@ def main():
     reference = jnp.column_stack((x_ref, y_ref, psi_ref))
     print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
     plot_track_results(X, U, ds, "track_reconstruction", reference)
+
+    arc_length = calculate_distance_along(
+        jnp.vstack(
+            (
+                X[:, 0],
+                X[:, 1],
+            )
+        )
+    )
+
+    path = Path(
+        s=arc_length,
+        x=X[:, 0],
+        y=X[:, 1],
+        psi=X[:, 2],
+        kappa=X[:, 3],
+        dkappa_ds=U[:, 0],
+    )
+
+    dump_path_to_json(path, track_name, os.path.join(base_dir, "tests"))
 
 
 if __name__ == "__main__":
