@@ -135,7 +135,7 @@ def plot_track_results(
     plot_name: str,
     reference: Optional[jnp.ndarray] = None,
 ):
-    """Plot optimization results."""
+    """Plot track reconstruction results."""
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     dist = jnp.arange(X.shape[0]) * ds
@@ -147,6 +147,8 @@ def plot_track_results(
         "x-",
         label="Position (m)",
     )
+    if reference is not None:
+        axs[0, 0].plot(reference[:, 0], reference[:, 1], "r-", label="refence")
     axs[0, 0].set_xlabel("x (m)")
     axs[0, 0].set_ylabel("y (m)")
     axs[0, 0].legend()
@@ -158,6 +160,8 @@ def plot_track_results(
         "x-",
         label="Yaw (rad)",
     )
+    if reference is not None:
+        axs[0, 1].plot(dist, reference[:, 2], "r-", label="refence")
     axs[0, 1].set_xlabel("Distance along (s)")
     axs[0, 1].set_ylabel("Yaw")
     axs[0, 1].legend()

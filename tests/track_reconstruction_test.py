@@ -114,8 +114,9 @@ def main():
         )
     )
 
+    reference = jnp.column_stack((x_ref, y_ref, psi_ref))
     print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
-    plot_track_results(X, U, ds, "track_reconstruction")
+    plot_track_results(X, U, ds, "track_reconstruction", reference)
 
 
 if __name__ == "__main__":
