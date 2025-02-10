@@ -53,8 +53,8 @@ def main():
             ]
         )
 
-    max_speed = 35.0  # Maximum speed in m/s
-    max_lat_accel = 15.0  # Maximum lateral acceleration in m/s^2
+    max_speed = 50.0  # Maximum speed in m/s
+    max_lat_accel = 10.0  # Maximum lateral acceleration in m/s^2
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
@@ -74,7 +74,7 @@ def main():
     u0 = jnp.zeros((horizon, 2))
     # Initial state now includes time: [x, y, psi, ds_dt, kappa, ax, t]
     x0 = jnp.array(
-        [x_ref[0], y_ref[0], psi_ref[0], 0.5, kappa_ref[0], 0.0, 0.0]
+        [x_ref[0], y_ref[0], psi_ref[0], 1.0, kappa_ref[0], 0.0, 0.0]
     )
     # Note: Initialize ds_dt to small positive value to avoid division by zero
 
@@ -104,7 +104,8 @@ def main():
         w_y = 1.0
         w_yaw = 10.0
         w_speed = 0.0
-        w_control = 10.0
+        w_swirl = 2.0
+        w_jerk = 0.2
 
         stage_cost = (
             w_x * jnp.dot(err_x, err_x)
@@ -112,7 +113,8 @@ def main():
             + w_yaw * jnp.dot(err_yaw, err_yaw)
             + w_yaw * jnp.dot(err_kappa, err_kappa)
             + w_speed * jnp.dot(err_vx, err_vx)
-            + w_control * jnp.dot(u, u)
+            + w_swirl * jnp.dot(u[0], u[0])
+            + w_jerk * jnp.dot(u[1], u[1])
         )
 
         final_cost = (
@@ -170,8 +172,9 @@ def main():
         )
     )
 
+    reference = jnp.column_stack((x_ref, y_ref, psi_ref))
     print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
-    plot_optimal_trajectory(X, U, 0.1, "stupid_test")
+    plot_optimal_trajectory(X, U, 0.1, "stupid_test", reference)
     print(X[:, 6])
 
 
