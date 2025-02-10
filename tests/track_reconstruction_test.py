@@ -77,7 +77,7 @@ def dump_path_to_json(path: Path, track_name: str, curr_dir: str):
 
 
 def main():
-    ds = 1.0
+    ds = 0.5
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 

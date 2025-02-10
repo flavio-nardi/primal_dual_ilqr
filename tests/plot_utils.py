@@ -196,3 +196,114 @@ def plot_track_results(
         dpi=300,
         bbox_inches="tight",
     )
+
+
+def plot_optimal_trajectory(X, U, dt, plot_name: str):
+    """Plot optimization results."""
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+
+    time = X[:, 6]
+    fig, axs = plt.subplots(3, 3, figsize=(24, 18))
+
+    axs[0, 0].plot(
+        X[:, 0],
+        X[:, 1],
+        "x-",
+        label="Position (m)",
+    )
+    axs[0, 0].set_xlabel("x (m)")
+    axs[0, 0].set_ylabel("y (m)")
+    axs[0, 0].legend()
+    axs[0, 0].grid()
+
+    axs[0, 1].plot(
+        time,
+        X[:, 3],
+        "x-",
+        label="Speed (mps)",
+    )
+    axs[0, 1].set_xlabel("Time (s)")
+    axs[0, 1].set_ylabel("Speed")
+    axs[0, 1].set_ylim([0, 50])
+    axs[0, 1].legend()
+    axs[0, 1].grid()
+
+    axs[0, 2].plot(
+        time,
+        X[:, 5],
+        "x-",
+        label="Acceleration (mps2)",
+    )
+    axs[0, 2].set_xlabel("Time (s)")
+    axs[0, 2].set_ylabel("Acceleration")
+    axs[0, 2].legend()
+    axs[0, 2].grid()
+
+    axs[1, 0].plot(
+        time[:-1],
+        U[:, 1],
+        markersize=10,
+        label="Jerk (mps3)",
+    )
+    axs[1, 0].set_xlabel("time (s)")
+    axs[1, 0].set_ylabel("Jerk (mps3)")
+    axs[1, 0].legend()
+    axs[1, 0].grid()
+
+    axs[1, 1].plot(
+        time,
+        X[:, 2],
+        label="Yaw (rad)",
+    )
+    axs[1, 1].set_xlabel("Time (s)")
+    axs[1, 1].set_ylabel("Yaw")
+    axs[1, 1].legend()
+    axs[1, 1].grid()
+
+    axs[1, 2].plot(
+        time,
+        X[:, 4],
+        label="Curvature (1pm)",
+    )
+    axs[1, 2].set_xlabel("Time (s)")
+    axs[1, 2].set_ylabel("Curvature")
+    axs[1, 2].legend()
+    axs[1, 2].grid()
+
+    axs[2, 0].plot(
+        time,
+        X[:, 4] * X[:, 3] * X[:, 3],
+        label="Lateral acceleration rear axle (mps2)",
+    )
+    axs[2, 0].set_xlabel("Time (s)")
+    axs[2, 0].set_ylabel("Lateral acceleration rear axle (mps2)")
+    axs[2, 0].legend()
+    axs[2, 0].grid()
+
+    axs[2, 1].plot(
+        time[:-1],
+        U[:, 0],
+        label="Swirl (1pmps)",
+    )
+    axs[2, 1].set_xlabel("Time (s)")
+    axs[2, 1].set_ylabel("Swirl")
+    axs[2, 1].legend()
+    axs[2, 1].grid()
+
+    # axs[2, 2].plot(
+    #     time,
+    #     speed_error,
+    #     label="Speed error (rad)",
+    # )
+    # axs[2, 2].set_xlabel("Time (s)")
+    # axs[2, 2].set_ylabel("Speed error")
+    # axs[2, 2].legend()
+    # axs[2, 2].grid()
+
+    plt.tight_layout()
+
+    plt.savefig(
+        curr_dir + "/" + plot_name + ".png",
+        dpi=300,
+        bbox_inches="tight",
+    )

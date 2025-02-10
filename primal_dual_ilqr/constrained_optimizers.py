@@ -25,7 +25,7 @@ def constrained_primal_dual_ilqr(
     V_in,
     equality_constraint=lambda x, u, t: np.empty(1),
     inequality_constraint=lambda x, u, t: np.empty(1),
-    max_iterations=100,
+    max_iterations=500,
     max_al_iterations=5,
     slope_threshold=1e-4,
     var_threshold=0.0,
