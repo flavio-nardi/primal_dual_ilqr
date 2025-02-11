@@ -18,7 +18,7 @@ from primal_dual_ilqr.constrained_optimizers import constrained_primal_dual_ilqr
 
 
 def main():
-    ds = 0.5  # Spatial discretization
+    ds = 0.2  # Spatial discretization
 
     @jax.jit
     def vehicle_kinematics(state, control, s):
@@ -58,7 +58,7 @@ def main():
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    track_name: str = "Nuerburgring"
+    track_name: str = "Austin"  # "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
     with open(file_path, "r") as f:
@@ -123,7 +123,6 @@ def main():
             + w_yaw * jnp.dot(err_yaw, err_yaw)
             + 100.0 * x[6]
             + 10.0 * jnp.dot(x[3], x[3])
-            # + 10.0 * jnp.dot(x[5], x[5])
         )
         return jnp.where(jnp.equal(t, horizon), final_cost, stage_cost)
 
@@ -174,8 +173,10 @@ def main():
 
     reference = jnp.column_stack((x_ref, y_ref, psi_ref))
     print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
-    plot_optimal_trajectory(X, U, 0.1, "stupid_test", reference)
-    print(X[:, 6])
+    plot_optimal_trajectory(
+        X, U, 0.1, "trajectory_optimization_results", reference
+    )
+    print(X[:10, 6])
 
 
 if __name__ == "__main__":

@@ -77,11 +77,11 @@ def dump_path_to_json(path: Path, track_name: str, curr_dir: str):
 
 
 def main():
-    ds = 0.5
+    ds = 0.2
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    track_name: str = "Nuerburgring"
+    track_name: str = "Austin"  # "Nuerburgring"
     file_path = os.path.join(base_dir, "data")
     x, y, w_right, w_left = read_track_data(track_name, file_path)
     x_raceline, y_raceline = read_raceline_data(
