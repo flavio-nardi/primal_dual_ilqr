@@ -27,9 +27,6 @@ def main():
         _, _, psi, ds_dt, kappa, ax, _ = state
         swirl, jerk = control
 
-        # Calculate dt for this spatial step
-        dt = ds / (ds_dt + 1e-6)  # Small epsilon to avoid division by zero
-
         # Position equations (scaled by ds since we're integrating in space)
         x_prime = jnp.cos(psi)  # dx/ds
         y_prime = jnp.sin(psi)  # dy/ds
@@ -39,7 +36,7 @@ def main():
         ds_dt_prime = ax / ds_dt
         kappa_prime = swirl / ds_dt
         ax_prime = jerk / ds_dt
-        t_prime = jnp.abs(dt)
+        t_prime = 1 / ds_dt
 
         return jnp.array(
             [
@@ -58,7 +55,7 @@ def main():
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    track_name: str = "Austin"  # "Nuerburgring"
+    track_name: str = "Austin"  # "Austin"  # "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
     with open(file_path, "r") as f:
@@ -68,25 +65,37 @@ def main():
     y_ref = jnp.array(data["y"])
     psi_ref = jnp.array(data["psi"])
     kappa_ref = jnp.array(data["kappa"])
-    vx_ref = 0.0 * jnp.ones_like(x_ref)
+    vx_ref = 1.0 * jnp.ones_like(x_ref)
+    vx_ref.at[0].set(0.0)
+    ax_ref = 0.1 * jnp.ones_like(x_ref)
+    ax_ref.at[0].set(0.0)
 
     horizon = x_ref.shape[0] - 1
     u0 = jnp.zeros((horizon, 2))
     # Initial state now includes time: [x, y, psi, ds_dt, kappa, ax, t]
     x0 = jnp.array(
-        [x_ref[0], y_ref[0], psi_ref[0], 1.0, kappa_ref[0], 0.0, 0.0]
+        [
+            x_ref[0],
+            y_ref[0],
+            psi_ref[0],
+            vx_ref[0],
+            kappa_ref[0],
+            ax_ref[0],
+            0.0,
+        ]
     )
-    # Note: Initialize ds_dt to small positive value to avoid division by zero
 
     # Warm start needs to be updated for new state dimension
     X_warm_start = jnp.zeros((horizon + 1, 7))  # Now 7 states instead of 6
     X_warm_start = X_warm_start.at[:, 0].set(x_ref)
     X_warm_start = X_warm_start.at[:, 1].set(y_ref)
     X_warm_start = X_warm_start.at[:, 2].set(psi_ref)
-    X_warm_start = X_warm_start.at[:, 3].set(1.0)  # Initial guess for ds_dt
+    X_warm_start = X_warm_start.at[:, 3].set(vx_ref)  # Initial guess for ds_dt
     X_warm_start = X_warm_start.at[:, 4].set(kappa_ref)
-    X_warm_start = X_warm_start.at[:, 5].set(0.0)  # ax
-    X_warm_start = X_warm_start.at[:, 6].set(0.2)  # time estimate
+    X_warm_start = X_warm_start.at[:, 5].set(ax_ref)  # ax
+    X_warm_start = X_warm_start.at[:, 6].set(
+        jnp.arange(horizon + 1) * 0.2
+    )  # time estimate
     V0 = jnp.zeros([horizon + 1, 7])
 
     def dynamics(x, u, s):
@@ -103,7 +112,6 @@ def main():
         w_x = 1.0
         w_y = 1.0
         w_yaw = 10.0
-        w_speed = 0.0
         w_swirl = 2.0
         w_jerk = 0.2
 
@@ -112,7 +120,6 @@ def main():
             + w_y * jnp.dot(err_y, err_y)
             + w_yaw * jnp.dot(err_yaw, err_yaw)
             + w_yaw * jnp.dot(err_kappa, err_kappa)
-            + w_speed * jnp.dot(err_vx, err_vx)
             + w_swirl * jnp.dot(u[0], u[0])
             + w_jerk * jnp.dot(u[1], u[1])
         )
@@ -130,7 +137,7 @@ def main():
     def inequality_constraint(x, u, t):
         ds_dt = x[3]
         kappa = x[4]
-        dt = 1.0 / (ds_dt + 1e-6)
+        dt_ds = 1.0 / ds_dt
 
         speed_constraints = jnp.array([ds_dt - max_speed, -ds_dt])
         accel_constraints = jnp.array([x[5] - 4.0, -x[5] - 10.0])
@@ -142,8 +149,8 @@ def main():
         )
         time_constraints = jnp.array(
             [
-                -dt,
-                dt - 0.5,
+                -dt_ds,
+                dt_ds - 0.5,
             ]
         )
 
@@ -176,7 +183,7 @@ def main():
     plot_optimal_trajectory(
         X, U, 0.1, "trajectory_optimization_results", reference
     )
-    print(X[:10, 6])
+    print(X[:, 3])
 
 
 if __name__ == "__main__":
