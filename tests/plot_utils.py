@@ -198,7 +198,7 @@ def plot_track_results(
     )
 
 
-def plot_optimal_trajectory(X, U, dt, plot_name: str, reference):
+def plot_optimal_trajectory(X, U, plot_name: str, reference):
     """Plot optimization results."""
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -230,7 +230,7 @@ def plot_optimal_trajectory(X, U, dt, plot_name: str, reference):
     )
     axs[0, 1].set_xlabel("Time (s)")
     axs[0, 1].set_ylabel("Speed")
-    axs[0, 1].set_ylim([0, 50])
+    axs[0, 1].set_ylim([0, 60])
     axs[0, 1].legend()
     axs[0, 1].grid()
 

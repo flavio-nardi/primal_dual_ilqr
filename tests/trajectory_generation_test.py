@@ -18,7 +18,7 @@ def main():
     @jax.jit
     def vehicle_kinematics(state, control, s):
         del s
-        # State now includes time as a state variable
+
         _, _, psi, ds_dt, kappa, ax, _ = state
         swirl, jerk = control
 
@@ -45,12 +45,13 @@ def main():
             ]
         )
 
-    max_speed = 50.0  # Maximum speed in m/s
+    max_speed = 60.0  # Maximum speed in m/s
     max_lat_accel = 10.0  # Maximum lateral acceleration in m/s^2
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    track_name: str = "Austin"  # "Austin"  # "Nuerburgring"
+    # track_name: str = "Austin"
+    track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
     with open(file_path, "r") as f:
@@ -132,12 +133,13 @@ def main():
     def inequality_constraint(x, u, t):
         ds_dt = x[3]
         kappa = x[4]
+        # Limit how fast can time change over space
         dt_ds = 1.0 / (ds_dt + eps)
 
         speed_constraints = jnp.array([ds_dt - max_speed, -ds_dt])
         accel_constraints = jnp.array([x[5] - 4.0, -x[5] - 10.0])
-        swirl_constraints = jnp.array([u[0] - 0.5, -u[0] - 0.5])
-        jerk_constraints = jnp.array([u[1] - 5.0, -u[1] - 5.0])
+        swirl_constraints = jnp.array([u[0] - 0.2, -u[0] - 0.2])
+        jerk_constraints = jnp.array([u[1] - 2.0, -u[1] - 2.0])
         lat_accel = kappa * ds_dt * ds_dt
         lat_accel_constraints = jnp.array(
             [lat_accel - max_lat_accel, -lat_accel - max_lat_accel]
@@ -175,10 +177,8 @@ def main():
 
     reference = jnp.column_stack((x_ref, y_ref, psi_ref))
     print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
-    plot_optimal_trajectory(
-        X, U, 0.1, "trajectory_optimization_results", reference
-    )
-    print(X[:, 3])
+    plot_optimal_trajectory(X, U, "trajectory_optimization_results", reference)
+    print("Track time: ", X[-1, 7])
 
 
 if __name__ == "__main__":
