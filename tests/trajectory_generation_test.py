@@ -8,17 +8,12 @@ import jax.numpy as jnp
 from plot_utils import plot_optimal_trajectory
 from trajax import optimizers
 
-from data.read_track_data import (
-    calculate_distance_along,
-    read_raceline_data,
-    read_track_data,
-    resample,
-)
 from primal_dual_ilqr.constrained_optimizers import constrained_primal_dual_ilqr
 
 
 def main():
-    ds = 0.2  # Spatial discretization
+    ds = 0.1  # Spatial discretization
+    eps: float = 1e-4
 
     @jax.jit
     def vehicle_kinematics(state, control, s):
@@ -94,7 +89,7 @@ def main():
     X_warm_start = X_warm_start.at[:, 4].set(kappa_ref)
     X_warm_start = X_warm_start.at[:, 5].set(ax_ref)  # ax
     X_warm_start = X_warm_start.at[:, 6].set(
-        jnp.arange(horizon + 1) * 0.2
+        jnp.arange(horizon + 1) * 0.1
     )  # time estimate
     V0 = jnp.zeros([horizon + 1, 7])
 
@@ -137,7 +132,7 @@ def main():
     def inequality_constraint(x, u, t):
         ds_dt = x[3]
         kappa = x[4]
-        dt_ds = 1.0 / ds_dt
+        dt_ds = 1.0 / (ds_dt + eps)
 
         speed_constraints = jnp.array([ds_dt - max_speed, -ds_dt])
         accel_constraints = jnp.array([x[5] - 4.0, -x[5] - 10.0])
