@@ -326,10 +326,10 @@ def plot_optimal_time_trajectory(X, U, plot_name: str, reference, ds):
     """Plot optimization results."""
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
-    dt = ds / jnp.abs(X[:, 3])
-    print(dt[:30])
-    time = jnp.cumsum(dt)
-    print(time[-1])
+    # dt = ds / jnp.abs(X[:, 3])
+    # print(dt[:30])
+    # time = jnp.cumsum(dt)
+    # print(time[-1])
 
     fig, axs = plt.subplots(3, 3, figsize=(24, 18))
 
