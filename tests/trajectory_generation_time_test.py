@@ -38,7 +38,7 @@ def main():
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    #track_name: str = "Austin"
+    # track_name: str = "Austin"
     track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
@@ -114,7 +114,7 @@ def main():
             w_ey * jnp.dot(err_ey, err_ey)
             + w_yaw * jnp.dot(err_yaw, err_yaw)
             + 50 * jnp.dot(x[3], x[3])
-            #+ 100 * jnp.dot(x[5], x[5])
+            # + 100 * jnp.dot(x[5], x[5])
         )
         return jnp.where(jnp.equal(t, horizon), final_cost, stage_cost)
 

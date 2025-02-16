@@ -6,9 +6,7 @@ from timeit import default_timer as timer
 
 import jax
 import jax.numpy as jnp
-from jax.scipy.linalg import expm
 from plot_utils import plot_track_results
-from trajax import optimizers
 
 from data.read_track_data import (
     calculate_distance_along,
@@ -16,7 +14,7 @@ from data.read_track_data import (
     read_track_data,
     resample,
 )
-from primal_dual_ilqr.constrained_optimizers import constrained_primal_dual_ilqr
+from primal_dual_ilqr.constrained_optimizers import primal_dual_ilqr
 
 
 @dataclass(frozen=True)
@@ -81,8 +79,8 @@ def main():
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    # track_name: str = "Austin"
-    track_name: str = "Nuerburgring"
+    track_name: str = "Austin"
+    # track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "data")
     x, y, w_right, w_left = read_track_data(track_name, file_path)
     x_raceline, y_raceline = read_raceline_data(
@@ -139,23 +137,12 @@ def main():
         )
         return jnp.where(t == horizon, final_cost, stage_cost)
 
-    X, U, V, iteration_ilqr, iteration_al, no_errors = (
-        constrained_primal_dual_ilqr(
-            al_cost,
-            dynamics,
-            x0,
-            X_warm_start,
-            u0,
-            V0,
-            equality_constraint=lambda x, u, t: jnp.empty(1),
-            inequality_constraint=lambda x, u, t: jnp.array(
-                [x[3] - 0.2, -x[3] - 0.2]
-            ),
-        )
+    X, U, V, iteration_ilqr, g, c, no_errors = primal_dual_ilqr(
+        al_cost, dynamics, x0, X_warm_start, u0, V0
     )
 
     reference = jnp.column_stack((x_ref, y_ref, psi_ref))
-    print(f"Primal dual aug lag result: {iteration_ilqr=} {iteration_al=}")
+    print(f"Primal dual aug lag result: {iteration_ilqr=}")
     plot_track_results(X, U, ds, "track_reconstruction", reference)
 
     arc_length = calculate_distance_along(
