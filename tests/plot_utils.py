@@ -448,3 +448,64 @@ def plot_optimal_time_trajectory(X, U, plot_name: str, reference, ds):
         dpi=300,
         bbox_inches="tight",
     )
+
+
+def plot_speed_trajectory(X, U, plot_name: str, dt, lateral_acceleration):
+    """Plot speed optimization results."""
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
+
+    fig, axs = plt.subplots(3, 2, figsize=(24, 18))
+    time = jnp.arange(X.shape[0]) * dt
+
+    axs[0, 0].plot(
+        time,
+        X[:, 0],
+        "s-",
+        label="Distance along (m)",
+    )
+    axs[0, 0].set_xlabel("Time (sec)")
+    axs[0, 0].set_ylabel(" (m)")
+    axs[0, 0].legend()
+    axs[0, 0].grid()
+
+    axs[1, 0].plot(
+        time,
+        X[:, 1],
+        "x-",
+        label="Speed (mps)",
+    )
+    axs[1, 0].set_xlabel("Time (s)")
+    axs[1, 0].set_ylabel("Speed")
+    axs[1, 0].set_ylim([0, 60])
+    axs[1, 0].legend()
+    axs[1, 0].grid()
+
+    axs[2, 0].plot(
+        time,
+        X[:, 2],
+        "x-",
+        label="Acceleration (mps2)",
+    )
+    axs[2, 0].set_xlabel("Time (s)")
+    axs[2, 0].set_ylabel("Acceleration")
+    axs[2, 0].legend()
+    axs[2, 0].grid()
+
+    axs[0, 1].plot(
+        time,
+        lateral_acceleration,
+        "x-",
+        label="Lateral Acceleration (mps2)",
+    )
+    axs[0, 1].set_xlabel("Time (s)")
+    axs[0, 1].set_ylabel("Latereal Acceleration")
+    axs[0, 1].legend()
+    axs[0, 1].grid()
+
+    plt.tight_layout()
+
+    plt.savefig(
+        curr_dir + "/" + plot_name + ".png",
+        dpi=300,
+        bbox_inches="tight",
+    )

@@ -79,8 +79,8 @@ def main():
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    track_name: str = "Austin"
-    # track_name: str = "Nuerburgring"
+    # track_name: str = "Austin"
+    track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "data")
     x, y, w_right, w_left = read_track_data(track_name, file_path)
     x_raceline, y_raceline = read_raceline_data(

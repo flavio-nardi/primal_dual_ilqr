@@ -39,7 +39,7 @@ def main():
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
     track_name: str = "Austin"
-    #track_name: str = "Nuerburgring"
+    # track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
     with open(file_path, "r") as f:
@@ -136,9 +136,9 @@ def main():
             [
                 speed_constraints,
                 accel_constraints,
-                #lat_accel_constraints,
+                # lat_accel_constraints,
                 swirl_constraints,
-                #jerk_constraints,
+                # jerk_constraints,
             ]
         )
 
