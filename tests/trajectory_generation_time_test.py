@@ -12,7 +12,7 @@ from primal_dual_ilqr.constrained_optimizers import constrained_primal_dual_ilqr
 
 
 def main():
-    ds = 0.1  # Spatial discretization
+    ds = 0.5  # Spatial discretization
 
     @jax.jit
     def vehicle_kinematics(state, control, t):
@@ -33,13 +33,13 @@ def main():
             ]
         )
 
-    max_speed = 20.0  # Maximum speed in m/s
+    max_speed = 40.0  # Maximum speed in m/s
     max_lat_accel = 10.0  # Maximum lateral acceleration in m/s^2
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
-    # track_name: str = "Austin"
-    track_name: str = "Nuerburgring"
+    track_name: str = "Austin"
+    #track_name: str = "Nuerburgring"
     file_path = os.path.join(base_dir, "tests", f"{track_name}.json")
 
     with open(file_path, "r") as f:
@@ -136,9 +136,9 @@ def main():
             [
                 speed_constraints,
                 accel_constraints,
-                lat_accel_constraints,
-                # swirl_constraints,
-                # jerk_constraints,
+                #lat_accel_constraints,
+                swirl_constraints,
+                #jerk_constraints,
             ]
         )
 

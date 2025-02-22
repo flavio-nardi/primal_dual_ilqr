@@ -75,7 +75,7 @@ def dump_path_to_json(path: Path, track_name: str, curr_dir: str):
 
 
 def main():
-    ds = 0.1
+    ds = 0.5
 
     base_dir = os.path.dirname(os.path.dirname(__file__))
 
@@ -120,9 +120,9 @@ def main():
         err_x = x[0] - x_ref[t]
         err_y = x[1] - y_ref[t]
         err_yaw = x[2] - psi_ref[t]
-        w_x = 1.0
-        w_y = 1.0
-        w_yaw = 10.0
+        w_x = 0.1
+        w_y = 0.1
+        w_yaw = 100.0
 
         stage_cost = (
             w_x * jnp.dot(err_x, err_x)

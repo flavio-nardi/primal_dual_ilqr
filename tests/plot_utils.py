@@ -144,7 +144,7 @@ def plot_track_results(
     axs[0, 0].plot(
         X[:, 0],
         X[:, 1],
-        "x-",
+        "b-",
         label="Position (m)",
     )
     if reference is not None:
@@ -157,7 +157,7 @@ def plot_track_results(
     axs[0, 1].plot(
         dist,
         X[:, 2],
-        "x-",
+        "b-",
         label="Yaw (rad)",
     )
     if reference is not None:
@@ -170,7 +170,7 @@ def plot_track_results(
     axs[1, 0].plot(
         dist,
         X[:, 3],
-        "x-",
+        "b-",
         label="Curvature (1pm)",
     )
     axs[1, 0].set_xlabel("Distance along (s)")
@@ -181,7 +181,7 @@ def plot_track_results(
     axs[1, 1].plot(
         dist[:-1],
         U[:, 0],
-        "x-",
+        "b-",
         label="dkappa ds (1pm2)",
     )
     axs[1, 1].set_xlabel("Dstance along (s)")
