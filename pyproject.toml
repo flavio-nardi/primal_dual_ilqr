@@ -4,8 +4,8 @@ version = "0.1"
 requires-python = ">= 3.12"
 dependencies = [
   "absl-py",
-  "jax[cpu]; platform_system != \"Linux\"",
-  "jax[cuda12]; platform_system == \"Linux\"",
+  "jax[cpu]>=0.4.24; platform_system != \"Linux\"",
+  "jax[cuda12]>=0.4.24; platform_system == \"Linux\"",
   "trajax @ git+https://github.com/google/trajax",
   "mypy",
   "black",
