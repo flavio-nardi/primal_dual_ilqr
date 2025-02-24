@@ -219,15 +219,15 @@ def main() -> None:
         err_x = x[0] - x_ref[t]
         err_y = x[1] - y_ref[t]
         err_yaw = x[2] - psi_ref[t]
-        w_x = 0.1
-        w_y = 0.1
-        w_yaw = 100.0
+        w_x = 0.001
+        w_y = 0.001
+        w_yaw = 0.01
 
         stage_cost = (
             w_x * jnp.dot(err_x, err_x)
             + w_y * jnp.dot(err_y, err_y)
             + w_yaw * jnp.dot(err_yaw, err_yaw)
-            + 100000.0 * jnp.dot(u, u)
+            + jnp.dot(u, u)
         )
         final_cost = (
             w_x * jnp.dot(err_x, err_x)

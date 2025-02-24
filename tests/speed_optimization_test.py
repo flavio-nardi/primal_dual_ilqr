@@ -45,10 +45,10 @@ def main():
     @jax.jit
     def vehicle_kinematics(state, control, t):
         del t
-        # Properly unpack the state vector
+
         s_dot = state[1]
         s_ddot = state[2]
-        jerk = control[0]  # Assuming control is a single value for jerk
+        jerk = control[0]
 
         return jnp.array([s_dot, s_ddot, jerk, 1.0])
 
@@ -76,10 +76,10 @@ def main():
 
     dt = 0.1
     # T = 245
-    T = 220
+    T = 385
     N = jnp.floor(T / dt).astype(jnp.int32)
     horizon = N - 1
-    u0 = jnp.zeros((horizon, 2))
+    u0 = jnp.zeros((horizon, 1))
 
     # Initial state now includes time: [x, y, psi, ds_dt, kappa, ax]
     x0 = jnp.array(
@@ -96,8 +96,8 @@ def main():
 
     V0 = jnp.zeros([horizon + 1, 4])
 
-    def dynamics(x, u, s):
-        return x + dt * vehicle_kinematics(x, u, s)
+    def dynamics(x, u, t):
+        return x + dt * vehicle_kinematics(x, u, t)
 
     def al_cost(x, u, t):
         time = x[3]
@@ -111,14 +111,12 @@ def main():
     def equality_constraint(x, u, t):
         s = x[0]
         ds_dt = x[1]
+        ds2_dt2 = x[2]
         return jnp.array(
             [
-                jnp.where(
-                    jnp.equal(t, horizon), s - s_ref[-1], 0.0
-                ),  # Must reach end
-                jnp.where(
-                    jnp.equal(t, horizon), ds_dt, 0.0
-                ),  # Optional: zero final speed
+                jnp.where(jnp.equal(t, horizon), s - s_ref[-1], 0.0),
+                jnp.where(jnp.equal(t, horizon), ds_dt, 0.0),
+                jnp.where(jnp.equal(t, horizon), ds2_dt2, 0.0),
             ]
         )
 

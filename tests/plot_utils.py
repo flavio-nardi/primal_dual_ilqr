@@ -470,37 +470,48 @@ def plot_speed_trajectory(X, U, plot_name: str, dt, lateral_acceleration):
 
     axs[1, 0].plot(
         time,
+        lateral_acceleration,
+        "x-",
+        label="Lateral Acceleration (mps2)",
+    )
+    axs[1, 0].set_xlabel("Time (s)")
+    axs[1, 0].set_ylabel("Latereal Acceleration")
+    axs[1, 0].legend()
+    axs[1, 0].grid()
+
+    axs[0, 1].plot(
+        time,
         X[:, 1],
         "x-",
         label="Speed (mps)",
     )
-    axs[1, 0].set_xlabel("Time (s)")
-    axs[1, 0].set_ylabel("Speed")
-    axs[1, 0].set_ylim([0, 60])
-    axs[1, 0].legend()
-    axs[1, 0].grid()
+    axs[0, 1].set_xlabel("Time (s)")
+    axs[0, 1].set_ylabel("Speed")
+    axs[0, 1].set_ylim([0, 60])
+    axs[0, 1].legend()
+    axs[0, 1].grid()
 
-    axs[2, 0].plot(
+    axs[1, 1].plot(
         time,
         X[:, 2],
         "x-",
         label="Acceleration (mps2)",
     )
-    axs[2, 0].set_xlabel("Time (s)")
-    axs[2, 0].set_ylabel("Acceleration")
-    axs[2, 0].legend()
-    axs[2, 0].grid()
+    axs[1, 1].set_xlabel("Time (s)")
+    axs[1, 1].set_ylabel("Acceleration")
+    axs[1, 1].legend()
+    axs[1, 1].grid()
 
-    axs[0, 1].plot(
-        time,
-        lateral_acceleration,
+    axs[2, 1].plot(
+        time[:-1],
+        U[:, 0],
         "x-",
-        label="Lateral Acceleration (mps2)",
+        label="Longitudnal Jerk (mps3)",
     )
-    axs[0, 1].set_xlabel("Time (s)")
-    axs[0, 1].set_ylabel("Latereal Acceleration")
-    axs[0, 1].legend()
-    axs[0, 1].grid()
+    axs[2, 1].set_xlabel("Time (s)")
+    axs[2, 1].set_ylabel("Longitudnal Jerk")
+    axs[2, 1].legend()
+    axs[2, 1].grid()
 
     plt.tight_layout()
 
