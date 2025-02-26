@@ -371,6 +371,8 @@ def main():
             V0,
             equality_constraint=eq_constraint_fn,
             inequality_constraint=ineq_constraint_fn,
+            max_iterations=1000,
+            max_al_iterations=5,
         )
     )
 
@@ -394,6 +396,7 @@ def main():
         dt,
         lateral_acceleration,
     )
+    print(f"Saving plot: {args.track}_speed_optimization_results")
 
     return X, U
 
