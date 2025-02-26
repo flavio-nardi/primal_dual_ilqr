@@ -17,10 +17,8 @@ from data.read_track_data import (
 )
 from primal_dual_ilqr.constrained_optimizers import primal_dual_ilqr
 
-# Type aliases for arrays that can be either JAX or NumPy
-# For mypy compatibility, we use Any in some places where more specific typing
-# would cause conflicts between JAX and NumPy types
-ArrayType = Any  # Union[jax.Array, NDArray[np.float64]] causes mypy issues
+# Type alias for arrays that can be either JAX or NumPy
+ArrayType = Any  # Using Any to avoid mypy conflicts between JAX and NumPy types
 
 
 @dataclass(frozen=True)
@@ -55,9 +53,7 @@ def plot_track_results(
         output_dir: Directory to save the plot (defaults to current directory)
     """
     curr_dir = output_dir or os.path.dirname(os.path.realpath(__file__))
-
-    # Calculate distance along track
-    dist = jnp.arange(X.shape[0]) * ds
+    dist = jnp.arange(X.shape[0]) * ds  # Calculate distance along track
 
     # Create figure with subplots
     fig, axs = plt.subplots(2, 2, figsize=(24, 18))
@@ -98,8 +94,6 @@ def plot_track_results(
     axs[1, 1].grid(True)
 
     plt.tight_layout()
-
-    # Save figure
     plt.savefig(
         os.path.join(curr_dir, f"{plot_name}.png"),
         dpi=300,
@@ -130,7 +124,7 @@ def spatial_kinematics(
     u = control[0]  # Extract scalar control value
 
     # Equations of motion
-    derivatives = jnp.array(
+    return jnp.array(
         [
             jnp.cos(psi),  # dx_ds
             jnp.sin(psi),  # dy_ds
@@ -138,8 +132,6 @@ def spatial_kinematics(
             u,  # dkappa_ds
         ]
     )
-
-    return derivatives
 
 
 def dump_path_to_json(path: Path, track_name: str, output_dir: str) -> None:
@@ -151,27 +143,18 @@ def dump_path_to_json(path: Path, track_name: str, output_dir: str) -> None:
         track_name: Name of track for filename
         output_dir: Directory to save JSON file
     """
-    # Convert JAX arrays to numpy arrays, then to lists for JSON serialization
     try:
-        # Convert to native Python lists for JSON serialization
-        path_dict: Dict[str, List[float]] = {
-            "s": [float(x) for x in np.asarray(path.s)],
-            "x": [float(x) for x in np.asarray(path.x)],
-            "y": [float(x) for x in np.asarray(path.y)],
-            "psi": [float(x) for x in np.asarray(path.psi)],
-            "kappa": [float(x) for x in np.asarray(path.kappa)],
-            "dkappa_ds": [float(x) for x in np.asarray(path.dkappa_ds)],
+        # Convert JAX arrays to lists for JSON serialization
+        path_dict = {
+            attr: [float(x) for x in np.asarray(getattr(path, attr))]
+            for attr in ["s", "x", "y", "psi", "kappa", "dkappa_ds"]
         }
     except TypeError as e:
         print(f"Error converting path to JSON: {e}")
         # Fallback for potential JAX tracers
         path_dict = {
-            "s": [float(x) for x in np.asarray(path.s)],
-            "x": [float(x) for x in np.asarray(path.x)],
-            "y": [float(x) for x in np.asarray(path.y)],
-            "psi": [float(x) for x in np.asarray(path.psi)],
-            "kappa": [float(x) for x in np.asarray(path.kappa)],
-            "dkappa_ds": [float(x) for x in np.asarray(path.dkappa_ds)],
+            attr: [float(x) for x in np.asarray(getattr(path, attr))]
+            for attr in ["s", "x", "y", "psi", "kappa", "dkappa_ds"]
         }
 
     file_path = os.path.join(output_dir, f"{track_name}.json")
@@ -183,11 +166,11 @@ def dump_path_to_json(path: Path, track_name: str, output_dir: str) -> None:
     print(f"Saved path to {file_path}")
 
 
-def create_cost_function(
+def create_track_reconstruction_cost_function(
     x_ref: ArrayType,
     y_ref: ArrayType,
     psi_ref: ArrayType,
-    horizon: int,
+    track_reconstruction_horizon: int,
     w_x: float = 0.001,
     w_y: float = 0.001,
     w_yaw: float = 0.01,
@@ -199,7 +182,7 @@ def create_cost_function(
         x_ref: Reference x coordinates
         y_ref: Reference y coordinates
         psi_ref: Reference yaw angles
-        horizon: Optimization horizon
+        track_reconstruction_horizon: Optimization horizon
         w_x: Weight for x coordinate error
         w_y: Weight for y coordinate error
         w_yaw: Weight for yaw angle error
@@ -222,28 +205,25 @@ def create_cost_function(
         err_y = x[1] - jnp.take(y_ref_jax, t_idx)
         err_yaw = x[2] - jnp.take(psi_ref_jax, t_idx)
 
-        # Calculate stage cost (includes control penalty)
-        stage_cost = (
+        # Calculate weighted squared errors
+        weighted_errors = (
             w_x * jnp.square(err_x)
             + w_y * jnp.square(err_y)
             + w_yaw * jnp.square(err_yaw)
-            + jnp.sum(jnp.square(u))  # Control effort penalty
         )
 
-        # Calculate final cost (no control penalty)
-        final_cost = (
-            w_x * jnp.square(err_x)
-            + w_y * jnp.square(err_y)
-            + w_yaw * jnp.square(err_yaw)
-        )
+        # For non-terminal states, add control penalty
+        stage_cost = weighted_errors + jnp.sum(jnp.square(u))
 
         # Return final cost for terminal state, stage cost otherwise
-        return jnp.where(t_idx == horizon, final_cost, stage_cost)
+        return jnp.where(
+            t_idx == track_reconstruction_horizon, weighted_errors, stage_cost
+        )
 
     return cost
 
 
-def create_dynamics_function(ds: float) -> Callable:
+def create_track_reconstruction_dynamics_function(ds: float) -> Callable:
     """
     Create a dynamics function for track optimization.
 
@@ -262,6 +242,12 @@ def create_dynamics_function(ds: float) -> Callable:
 
 def main() -> None:
     """Main function to generate and optimize track trajectory."""
+    # Set up directories
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    data_dir = os.path.join(base_dir, "data")
+    output_dir = os.path.join(base_dir, "trajectory_optimization")
+    os.makedirs(output_dir, exist_ok=True)
+
     # Configuration parameters
     ds = 0.5  # Spatial step size
     track_name = "Nuerburgring"
@@ -270,12 +256,6 @@ def main() -> None:
     w_x = 0.001  # Weight for x position error
     w_y = 0.001  # Weight for y position error
     w_yaw = 0.01  # Weight for yaw angle error
-
-    # Set up directories
-    base_dir = os.path.dirname(os.path.dirname(__file__))
-    data_dir = os.path.join(base_dir, "data")
-    output_dir = os.path.join(base_dir, "trajectory_optimization")
-    os.makedirs(output_dir, exist_ok=True)
 
     # Read track data
     print(f"Reading track data for {track_name}...")
@@ -296,9 +276,7 @@ def main() -> None:
         track_boundaries_np,
         raceline_np,
         ds,
-    )[
-        0
-    ]  # Get first element of tuple
+    )[0]
 
     # Extract reference trajectory
     x_ref = resampled_track_waypoints[0, :]
@@ -314,60 +292,89 @@ def main() -> None:
     psi_ref = jnp.append(psi_ref, psi_ref[-1])
 
     # Set up optimization
-    horizon = x_ref.shape[0] - 1
+    track_reconstruction_horizon = x_ref.shape[0] - 1
 
     # Initial and reference states
-    x0 = jnp.array([x_ref[0], y_ref[0], psi_ref[0], 0.0])
-    u0 = jnp.zeros((horizon, 1))
+    track_reconstruction_x0 = jnp.array([x_ref[0], y_ref[0], psi_ref[0], 0.0])
+    track_reconstruction_u0 = jnp.zeros((track_reconstruction_horizon, 1))
 
     # Create warm start for optimization
-    kappa_ref = jnp.zeros((horizon + 1, 1))
-    X_warm_start = jnp.column_stack((x_ref, y_ref, psi_ref, kappa_ref))
-    V0 = jnp.zeros([horizon + 1, 4])
+    kappa_ref = jnp.zeros((track_reconstruction_horizon + 1, 1))
+    track_reconstruction_warm_start = jnp.column_stack(
+        (x_ref, y_ref, psi_ref, kappa_ref)
+    )
+    track_reconstruction_V0 = jnp.zeros([track_reconstruction_horizon + 1, 4])
 
     # Create cost and dynamics functions
-    cost = create_cost_function(x_ref, y_ref, psi_ref, horizon, w_x, w_y, w_yaw)
-    dynamics = create_dynamics_function(ds)
+    track_reconstruction_cost = create_track_reconstruction_cost_function(
+        x_ref, y_ref, psi_ref, track_reconstruction_horizon, w_x, w_y, w_yaw
+    )
+    track_reconstruction_dynamics = (
+        create_track_reconstruction_dynamics_function(ds)
+    )
 
-    # Convert arrays to JAX arrays to ensure compatibility
-    x0 = jnp.asarray(x0)
-    X_warm_start = jnp.asarray(X_warm_start)
-    u0 = jnp.asarray(u0)
-    V0 = jnp.asarray(V0)
+    # Ensure arrays are JAX arrays for compatibility
+    track_reconstruction_x0 = jnp.asarray(track_reconstruction_x0)
+    track_reconstruction_warm_start = jnp.asarray(
+        track_reconstruction_warm_start
+    )
+    track_reconstruction_u0 = jnp.asarray(track_reconstruction_u0)
+    track_reconstruction_V0 = jnp.asarray(track_reconstruction_V0)
 
     # Run optimization
     print("Running optimization...")
-    X, U, V, iteration_ilqr, g, c, no_errors = primal_dual_ilqr(
-        cost, dynamics, x0, X_warm_start, u0, V0
+    (
+        track_reconstruction_X,
+        track_reconstruction_U,
+        _,
+        iteration_ilqr,
+        _,
+        _,
+        no_errors,
+    ) = primal_dual_ilqr(
+        track_reconstruction_cost,
+        track_reconstruction_dynamics,
+        track_reconstruction_x0,
+        track_reconstruction_warm_start,
+        track_reconstruction_u0,
+        track_reconstruction_V0,
     )
 
     # Print results
-    print(f"Optimization completed in {iteration_ilqr} iterations")
-    print(f"Optimization status: {'Success' if no_errors else 'Failed'}")
+    print(f"Track reconstruction completed in {iteration_ilqr} iterations")
+    print(
+        f"Track reconstruction status: {'Success' if no_errors else 'Failed'}"
+    )
 
     # Create reference for plotting
     reference = jnp.column_stack((x_ref, y_ref, psi_ref))
 
     # Plot results
     print("Plotting results...")
-    plot_track_results(X, U, ds, "track_reconstruction", reference, output_dir)
+    plot_track_results(
+        track_reconstruction_X,
+        track_reconstruction_U,
+        ds,
+        track_name + "_track_reconstruction",
+        reference,
+        output_dir,
+    )
 
     # Calculate path lengths
-    positions = jnp.vstack((X[:, 0], X[:, 1]))
-    # Use numpy arrays for calculate_distance_along to avoid JAX tracer issues
-    positions_np = np.asarray(positions)
-    arc_length = calculate_distance_along(positions_np)
+    positions = np.vstack(
+        (track_reconstruction_X[:, 0], track_reconstruction_X[:, 1])
+    )
+    arc_length = calculate_distance_along(positions)
 
     # Create Path object
-    # Ensure all arrays have consistent types (using JAX arrays)
     path = Path(
         s=jnp.asarray(arc_length),
-        x=X[:, 0],
-        y=X[:, 1],
-        psi=X[:, 2],
-        kappa=X[:, 3],
+        x=track_reconstruction_X[:, 0],
+        y=track_reconstruction_X[:, 1],
+        psi=track_reconstruction_X[:, 2],
+        kappa=track_reconstruction_X[:, 3],
         dkappa_ds=jnp.append(
-            U[:, 0], U[-1, 0]
+            track_reconstruction_U[:, 0], track_reconstruction_U[-1, 0]
         ),  # Append last control to match length
     )
 
